@@ -552,40 +552,66 @@
       errEl.classList.remove('show');
 
       const btn = document.querySelector('.setup-btn');
-      btn.textContent = '建立中...';
+      btn.textContent = '連線中...';
       btn.disabled = true;
 
       try {
-        // Create a private Gist with existing data
-        const existing = load();
-        const res = await fetch('https://api.github.com/gists', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/vnd.github+json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            description: '顯化日記｜Carol 的秘密花園',
-            public: false,
-            files: { [GIST_FILE]: { content: JSON.stringify(existing) } }
-          })
-        });
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.github+json',
+          'Content-Type': 'application/json'
+        };
 
-        if (!res.ok) {
+        // 先查是否已有日記 Gist，有的話直接連上，不建新的
+        let gistId = null;
+        const listRes = await fetch('https://api.github.com/gists?per_page=100', { headers });
+        if (!listRes.ok) {
+          errEl.textContent = 'Token 驗證失敗，請確認是否有 gist 權限';
           errEl.classList.add('show');
           input.classList.add('error');
           btn.textContent = '開始同步 🌿';
           btn.disabled = false;
           return;
         }
+        const gists = await listRes.json();
+        const found = gists.find(g => g.files && g.files[GIST_FILE]);
+        if (found) {
+          gistId = found.id;
+        }
 
-        const gist = await res.json();
-        localStorage.setItem(TOKEN_KEY, token);
-        localStorage.setItem(GIST_KEY, gist.id);
-        setSyncStatus('ok');
-        closeSetup();
-        showToast('✅ 同步設定完成！任何裝置開啟都能看到同一份日記 🌿');
+        if (gistId) {
+          // 找到舊 Gist，直接連上並讀取雲端資料
+          localStorage.setItem(TOKEN_KEY, token);
+          localStorage.setItem(GIST_KEY, gistId);
+          closeSetup();
+          showToast('✅ 已連結到現有日記，同步中...');
+          await loadFromGist();
+          render();
+        } else {
+          // 第一次使用，建立新 Gist（帶入本機現有資料）
+          const res = await fetch('https://api.github.com/gists', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              description: '顯化日記｜Carol 的秘密花園',
+              public: false,
+              files: { [GIST_FILE]: { content: JSON.stringify(load()) } }
+            })
+          });
+          if (!res.ok) {
+            errEl.classList.add('show');
+            input.classList.add('error');
+            btn.textContent = '開始同步 🌿';
+            btn.disabled = false;
+            return;
+          }
+          const gist = await res.json();
+          localStorage.setItem(TOKEN_KEY, token);
+          localStorage.setItem(GIST_KEY, gist.id);
+          setSyncStatus('ok');
+          closeSetup();
+          showToast('✅ 同步設定完成！任何裝置開啟都能看到同一份日記 🌿');
+        }
       } catch {
         errEl.textContent = '網路錯誤，請稍後再試';
         errEl.classList.add('show');
