@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>顯化日記 ✦ Carol</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, 'PingFang TC', 'Helvetica Neue', sans-serif;
+      background: #f5f2eb;
+      color: #3a3a3a;
+      min-height: 100vh;
+      padding-bottom: 60px;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #006030 0%, #1a7a45 100%);
+      color: white;
+      padding: 28px 20px 32px;
+      position: relative;
+      overflow: hidden;
+    }
+    .header::before { content:'🌿'; position:absolute; font-size:90px; right:-8px; top:-8px; opacity:.22; pointer-events:none; }
+    .header::after  { content:'🌸'; position:absolute; font-size:50px; right:50px; bottom:10px; opacity:.18; pointer-events:none; }
+    .header-label { font-size:11px; letter-spacing:3px; opacity:.75; margin-bottom:6px; text-transform:uppercase; }
+    .header-title { font-size:28px; font-weight:700; letter-spacing:1px; }
+    .header-date  { font-size:13px; opacity:.7; margin-top:6px; }
+    .sync-badge {
+      position: absolute; top: 14px; right: 14px;
+      font-size: 11px; background: rgba(255,255,255,.18);
+      padding: 5px 11px; border-radius: 14px; cursor: pointer;
+      transition: background .15s; white-space: nowrap;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .sync-badge:hover { background: rgba(255,255,255,.3); }
+    .sync-badge.syncing { animation: pulse .8s infinite alternate; }
+    @keyframes pulse { from{opacity:.7} to{opacity:1} }
+
+    /* ── Stats ── */
+    .stats-row { display:flex; gap:10px; padding:0 14px; margin:16px 0; }
+    .stat-card { flex:1; background:white; border-radius:16px; padding:14px 8px; text-align:center; box-shadow:0 4px 20px rgba(0,96,48,.11); }
+    .stat-icon { font-size:22px; line-height:1; }
+    .stat-value { display:block; font-size:26px; font-weight:800; color:#006030; line-height:1.2; margin-top:4px; }
+    .stat-label { font-size:10px; color:#999; margin-top:4px; }
+
+    /* ── Calendar section ── */
+    .cal-section {
+      margin: 0 14px 14px;
+      background: white;
+      border-radius: 20px;
+      padding: 12px 14px 10px;
+      box-shadow: 0 4px 16px rgba(0,96,48,.08);
+    }
+    .cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .cal-nav { display: flex; align-items: center; gap: 10px; }
+    .cal-nav-btn {
+      width: 30px; height: 30px;
+      border: 1.5px solid #cce8d8; border-radius: 50%;
+      background: white; color: #006030; font-size: 16px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .cal-nav-btn:active { background: #e0f2ea; }
+    .cal-month-title { font-size: 15px; font-weight: 700; color: #006030; min-width: 80px; text-align: center; }
+    .cal-export-btn {
+      padding: 6px 14px; background: #006030; color: white;
+      border: none; border-radius: 20px; font-size: 12px; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+      display: flex; align-items: center; gap: 5px;
+      box-shadow: 0 2px 8px rgba(0,96,48,.25); transition: transform .12s;
+    }
+    .cal-export-btn:active { transform: scale(.96); }
+    .cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 2px; }
+    .cal-wd { text-align: center; font-size: 10px; color: #aaa; font-weight: 600; padding: 2px 0; }
+    .cal-wd:last-child { color: #e08080; }
+    .cal-days { display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px; }
+    .cal-day {
+      width: 30px; height: 30px; margin: 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; font-size: 12px; color: #555;
+      cursor: default; position: relative; transition: transform .1s;
+    }
+    .cal-day.empty { color: transparent; }
+    .cal-day.future { color: #ddd; }
+    .cal-day.has-entry { background: #006030; color: white; font-weight: 700; cursor: pointer; }
+    .cal-day.has-entry:active { transform: scale(.9); }
+    .cal-day.today:not(.has-entry) { border: 2px solid #006030; color: #006030; font-weight: 700; }
+    .cal-day.today.has-entry { box-shadow: 0 0 0 2px #fff, 0 0 0 4px #006030; }
+    .cal-day.sun { color: #e08080; }
+    .cal-day.sun.has-entry { color: white; }
+    .cal-legend { margin-top: 10px; display: flex; gap: 14px; font-size: 11px; color: #aaa; align-items: center; }
+    .legend-dot { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; }
+
+    /* ── Level Progress ── */
+    .level-section { margin:0 14px 14px; background:white; border-radius:20px; padding:16px 18px; box-shadow:0 4px 16px rgba(0,96,48,.08); }
+    .level-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .level-badge { background:linear-gradient(135deg,#006030,#1a9050); color:white; padding:5px 14px; border-radius:20px; font-size:13px; font-weight:700; }
+    .progress-track { background:#e0f2ea; border-radius:10px; height:14px; overflow:hidden; }
+    .progress-fill {
+      height:100%; background:linear-gradient(90deg,#1a9050,#006030);
+      border-radius:10px; transition:width 1s cubic-bezier(.34,1.56,.64,1); position:relative;
+    }
+    .progress-fill::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent 60%,rgba(255,255,255,.4)); border-radius:10px; animation:sheen 2s infinite; }
+    @keyframes sheen { 0%,100%{opacity:.4} 50%{opacity:1} }
+    .progress-label { font-size:11px; color:#aaa; margin-top:6px; text-align:right; }
+
+    /* ── Prompt ── */
+    .prompt-wrap { margin:0 14px 14px; }
+    .prompt-card { background:linear-gradient(135deg,#fffbee,#fff8e0); border:1.5px solid #e8d88a; border-radius:16px; padding:14px 16px; }
+    .prompt-kicker { font-size:10px; letter-spacing:2px; color:#c8960a; font-weight:700; margin-bottom:5px; }
+    .prompt-text { font-size:15px; color:#5a4820; line-height:1.65; }
+
+    /* ── Write ── */
+    .write-section { margin:0 14px 14px; background:white; border-radius:20px; padding:18px; box-shadow:0 4px 16px rgba(0,96,48,.08); }
+    .write-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .write-title { font-size:14px; font-weight:700; color:#006030; }
+    .char-count { font-size:12px; color:#bbb; }
+    textarea {
+      width:100%; min-height:190px;
+      border:1.5px solid #cce8d8; border-radius:14px;
+      padding:14px 15px; font-size:16px; font-family:inherit;
+      color:#3a3a3a; background:#f7fcf9;
+      resize:vertical; outline:none; line-height:1.75;
+      transition:border-color .2s, background .2s;
+    }
+    textarea:focus { border-color:#006030; background:#fff; }
+    textarea::placeholder { color:#c5c5c5; font-size:15px; }
+    textarea.error { border-color:#e57373; }
+    .praise-field { margin-top:14px; padding-top:14px; border-top:1px solid #f0f0f0; }
+    .praise-field-label { font-size:13px; font-weight:700; color:#006030; margin-bottom:8px; display:flex; align-items:center; gap:5px; }
+    .praise-field-sub { font-size:11px; color:#bbb; font-weight:400; margin-left:4px; }
+    .praise-input {
+      width:100%; border:1.5px solid #cce8d8; border-radius:12px;
+      padding:12px 14px; font-size:15px; font-family:inherit;
+      color:#3a3a3a; background:#f7fcf9; outline:none;
+      transition:border-color .2s, background .2s;
+    }
+    .praise-input:focus { border-color:#006030; background:#fff; }
+    .praise-input::placeholder { color:#c5c5c5; }
+    .submit-btn {
+      width:100%; margin-top:14px; padding:17px;
+      background:linear-gradient(135deg,#006030,#1a8048);
+      color:white; border:none; border-radius:16px;
+      font-size:17px; font-weight:700; font-family:inherit;
+      cursor:pointer; letter-spacing:.5px;
+      box-shadow:0 6px 20px rgba(0,96,48,.35);
+      transition:transform .12s, box-shadow .12s;
+      display:flex; align-items:center; justify-content:center; gap:8px;
+    }
+    .submit-btn:active { transform:scale(.97); box-shadow:0 3px 10px rgba(0,96,48,.25); }
+
+    /* ── Done today ── */
+    .done-today { display:none; margin:0 14px 14px; background:white; border-radius:20px; padding:24px; text-align:center; box-shadow:0 4px 16px rgba(0,96,48,.08); }
+    .done-today-icon { font-size:40px; margin-bottom:8px; }
+    .done-today-text { font-size:16px; font-weight:700; color:#006030; }
+    .done-today-sub { font-size:13px; color:#aaa; margin-top:4px; line-height:1.5; }
+    .done-today-praise { margin-top:14px; padding:12px 16px; background:#f0faf4; border:1px solid #b0dfc0; border-radius:14px; font-size:15px; color:#006030; font-style:italic; line-height:1.5; }
+
+    /* ── History ── */
+    .history-section { margin:0 14px; }
+    .section-title { font-size:13px; font-weight:700; color:#006030; letter-spacing:1px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+    .entry-card { background:white; border-radius:16px; padding:14px 16px; margin-bottom:10px; box-shadow:0 2px 12px rgba(0,96,48,.06); border-left:3px solid #7dcca0; }
+    .entry-card.golden { border-left-color:#d4a843; }
+    .entry-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+    .entry-date { font-size:12px; color:#aaa; }
+    .entry-energy { font-size:12px; font-weight:700; color:#b8860a; background:#fff8e0; padding:2px 10px; border-radius:10px; }
+    .entry-body { font-size:14px; color:#555; line-height:1.65; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+    .entry-praise-row { margin-top:8px; font-size:13px; color:#006030; font-style:italic; display:flex; align-items:flex-start; gap:5px; }
+    .empty-history { text-align:center; padding:30px 20px; color:#bbb; font-size:14px; line-height:1.8; }
+
+    /* ── Entry detail modal ── */
+    .entry-modal {
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      display:flex; align-items:flex-end; justify-content:center;
+      z-index:200; opacity:0; pointer-events:none; transition:opacity .25s;
+    }
+    .entry-modal.show { opacity:1; pointer-events:all; }
+    .entry-modal-card {
+      background:white; border-radius:24px 24px 0 0;
+      padding:20px 20px 36px; width:100%; max-width:520px;
+      max-height:80vh; overflow-y:auto;
+      transform:translateY(100%);
+      transition:transform .35s cubic-bezier(.32,1.25,.46,.98);
+    }
+    .entry-modal.show .entry-modal-card { transform:translateY(0); }
+    .modal-handle { width:40px; height:4px; background:#e0e0e0; border-radius:2px; margin:0 auto 16px; }
+    .modal-date-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+    .modal-date { font-size:16px; font-weight:700; color:#006030; }
+    .modal-energy { font-size:13px; font-weight:700; color:#b8860a; background:#fff8e0; padding:3px 12px; border-radius:10px; }
+    .modal-body { font-size:15px; color:#444; line-height:1.8; white-space:pre-wrap; }
+    .modal-praise { margin-top:14px; padding:12px 14px; background:#f0faf4; border:1px solid #b0dfc0; border-radius:14px; font-size:14px; color:#006030; font-style:italic; }
+    .modal-close { display:block; margin-top:20px; width:100%; padding:14px; background:#006030; color:white; border:none; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; }
+
+    /* ── Setup modal ── */
+    .setup-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      display:flex; align-items:center; justify-content:center;
+      z-index:500; opacity:0; pointer-events:none; transition:opacity .3s;
+    }
+    .setup-overlay.show { opacity:1; pointer-events:all; }
+    .setup-card {
+      background:white; border-radius:24px; padding:28px 24px 24px;
+      width:90%; max-width:400px;
+      transform:translateY(20px); transition:transform .35s cubic-bezier(.32,1.25,.46,.98);
+    }
+    .setup-overlay.show .setup-card { transform:translateY(0); }
+    .setup-icon { font-size:44px; text-align:center; margin-bottom:12px; }
+    .setup-title { font-size:19px; font-weight:800; color:#006030; text-align:center; margin-bottom:6px; }
+    .setup-desc { font-size:13px; color:#888; line-height:1.65; text-align:center; margin-bottom:20px; }
+    .setup-label { font-size:12px; font-weight:700; color:#555; margin-bottom:6px; display:block; }
+    .setup-input {
+      width:100%; border:1.5px solid #cce8d8; border-radius:12px;
+      padding:12px 14px; font-size:14px; font-family:inherit;
+      color:#3a3a3a; background:#f7fcf9; outline:none; margin-bottom:14px;
+      transition:border-color .2s;
+    }
+    .setup-input:focus { border-color:#006030; background:#fff; }
+    .setup-input.error { border-color:#e57373; }
+    .setup-btn {
+      width:100%; padding:15px; background:linear-gradient(135deg,#006030,#1a8048);
+      color:white; border:none; border-radius:14px;
+      font-size:16px; font-weight:700; font-family:inherit; cursor:pointer;
+      box-shadow:0 4px 16px rgba(0,96,48,.3); transition:transform .12s;
+    }
+    .setup-btn:active { transform:scale(.97); }
+    .setup-skip { display:block; text-align:center; margin-top:14px; font-size:12px; color:#bbb; cursor:pointer; }
+    .setup-skip:hover { color:#888; }
+    .setup-err { font-size:12px; color:#e57373; margin-top:-8px; margin-bottom:12px; display:none; }
+    .setup-err.show { display:block; }
+
+    /* ── Toast ── */
+    .toast {
+      position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(80px);
+      background:#006030; color:white; padding:12px 24px;
+      border-radius:24px; font-size:14px; font-weight:600;
+      box-shadow:0 6px 20px rgba(0,96,48,.4);
+      transition:transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      opacity:0; z-index:300; white-space:nowrap;
+    }
+    .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+    /* ── Celebration overlay ── */
+    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.48); display:flex; align-items:center; justify-content:center; z-index:100; opacity:0; pointer-events:none; transition:opacity .3s; }
+    .overlay.show { opacity:1; pointer-events:all; }
+    .celebrate-card { background:white; border-radius:28px; padding:36px 28px 28px; text-align:center; max-width:330px; width:90%; transform:scale(.75); transition:transform .45s cubic-bezier(.34,1.56,.64,1); }
+    .overlay.show .celebrate-card { transform:scale(1); }
+    .celebrate-emoji { font-size:64px; margin-bottom:14px; }
+    .celebrate-title { font-size:22px; font-weight:800; color:#006030; margin-bottom:8px; }
+    .celebrate-msg { font-size:14px; color:#666; line-height:1.6; }
+    .celebrate-praise-box { margin-top:14px; padding:12px 16px; background:#f0faf4; border:1px solid #a0d8b8; border-radius:14px; font-size:15px; color:#006030; font-style:italic; line-height:1.5; display:none; }
+    .celebrate-praise-box.show { display:block; }
+    .celebrate-energy-row { margin-top:14px; display:flex; flex-wrap:wrap; gap:6px; justify-content:center; }
+    .energy-chip { padding:5px 12px; border-radius:14px; font-size:12px; font-weight:700; }
+    .chip-base   { background:#e0f2ea; color:#006030; }
+    .chip-praise { background:#fff4cc; color:#b8860a; }
+    .chip-streak { background:#ffeee0; color:#c05a00; }
+    .chip-total  { background:#006030; color:white; font-size:14px; padding:7px 16px; }
+    .celebrate-close { margin-top:20px; width:100%; padding:15px; background:linear-gradient(135deg,#006030,#1a8048); color:white; border:none; border-radius:16px; font-size:16px; font-weight:700; font-family:inherit; cursor:pointer; }
+
+    /* ── Particles ── */
+    .particle { position:fixed; pointer-events:none; font-size:22px; z-index:300; animation:floatUp 1.6s ease-out forwards; }
+    @keyframes floatUp { 0%{transform:translateY(0) scale(.8) rotate(0);opacity:1} 100%{transform:translateY(-170px) scale(1.4) rotate(30deg);opacity:0} }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-label">✦ 花開製作所</div>
+    <div class="header-title">顯化日記</div>
+    <div class="header-date" id="todayDate"></div>
+    <div class="sync-badge" id="syncBadge" onclick="showSetup()">⚙️ 設定同步</div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon">🔥</div>
+      <span class="stat-value" id="statStreak">0</span>
+      <div class="stat-label">連續天數</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📖</div>
+      <span class="stat-value" id="statTotal">0</span>
+      <div class="stat-label">累積篇數</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⚡</div>
+      <span class="stat-value" id="statEnergy">0</span>
+      <div class="stat-label">總能量值</div>
+    </div>
+  </div>
+
+  <!-- Monthly Calendar -->
+  <div class="cal-section">
+    <div class="cal-header">
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">‹</button>
+        <div class="cal-month-title" id="calMonthTitle"></div>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">›</button>
+      </div>
+      <button class="cal-export-btn" onclick="exportMonth()">📋 匯出本月</button>
+    </div>
+    <div class="cal-weekdays">
+      <div class="cal-wd">一</div><div class="cal-wd">二</div>
+      <div class="cal-wd">三</div><div class="cal-wd">四</div>
+      <div class="cal-wd">五</div><div class="cal-wd">六</div>
+      <div class="cal-wd">日</div>
+    </div>
+    <div class="cal-days" id="calDays"></div>
+    <div class="cal-legend">
+      <span><span class="legend-dot" style="background:#006030"></span>有寫日記</span>
+      <span><span class="legend-dot" style="border:2px solid #006030;background:white"></span>今天</span>
+    </div>
+  </div>
+
+  <!-- Level Progress -->
+  <div class="level-section">
+    <div class="level-row">
+      <div class="level-badge" id="levelBadge">🌱 種子</div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel"></div>
+  </div>
+
+  <!-- Daily Prompt -->
+  <div class="prompt-wrap">
+    <div class="prompt-card">
+      <div class="prompt-kicker">✨ 今日提示</div>
+      <div class="prompt-text" id="promptText"></div>
+    </div>
+  </div>
+
+  <!-- Write -->
+  <div class="write-section" id="writeSection">
+    <div class="write-header">
+      <div class="write-title">今日的你 ✍️</div>
+      <div class="char-count" id="charCount">0 字</div>
+    </div>
+    <textarea id="journalArea"
+      placeholder="今天，你想對自己說什麼？&#10;&#10;可以寫：今天做到了什麼、什麼讓你感到驕傲，或者你想給自己的一句話..."></textarea>
+    <div class="praise-field">
+      <div class="praise-field-label">✨ 今天對自己的稱讚<span class="praise-field-sub">（選填）</span></div>
+      <input type="text" id="praiseInput" class="praise-input"
+        placeholder="今天的我，_____ （隨便寫，對自己說一句好話就好）">
+    </div>
+    <button class="submit-btn" onclick="submitEntry()">完成今日日記 🌸</button>
+  </div>
+
+  <!-- Done today -->
+  <div class="done-today" id="doneToday">
+    <div class="done-today-icon">🌸</div>
+    <div class="done-today-text">今天已經寫好了！</div>
+    <div class="done-today-sub">繼續保持，明天再來累積能量 ✨<br>連續不中斷，花就會越開越美</div>
+    <div class="done-today-praise" id="doneTodayPraise" style="display:none"></div>
+  </div>
+
+  <!-- History -->
+  <div class="history-section">
+    <div class="section-title">🌿 過去的日記</div>
+    <div id="entryList"></div>
+    <div class="empty-history" id="emptyHint" style="display:none">
+      還沒有任何日記 🌱<br>寫下第一篇，讓花開始生長吧
+    </div>
+  </div>
+
+  <!-- Entry detail modal -->
+  <div class="entry-modal" id="entryModal" onclick="closeEntryModal(event)">
+    <div class="entry-modal-card">
+      <div class="modal-handle"></div>
+      <div class="modal-date-row">
+        <div class="modal-date" id="modalDate"></div>
+        <div class="modal-energy" id="modalEnergy"></div>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-praise" id="modalPraise" style="display:none"></div>
+      <button class="modal-close" onclick="closeEntryModal()">關閉</button>
+    </div>
+  </div>
+
+  <!-- Celebration overlay -->
+  <div class="overlay" id="overlay" onclick="if(event.target===this)closeOverlay()">
+    <div class="celebrate-card">
+      <div class="celebrate-emoji" id="celEmoji">🌸</div>
+      <div class="celebrate-title">今天的你，很棒！</div>
+      <div class="celebrate-msg" id="celMsg"></div>
+      <div class="celebrate-praise-box" id="celPraiseBox"></div>
+      <div class="celebrate-energy-row" id="celChips"></div>
+      <button class="celebrate-close" onclick="closeOverlay()">繼續加油 🌿</button>
+    </div>
+  </div>
+
+  <!-- Setup modal -->
+  <div class="setup-overlay" id="setupOverlay">
+    <div class="setup-card">
+      <div class="setup-icon">☁️</div>
+      <div class="setup-title">設定雲端同步</div>
+      <div class="setup-desc">用 GitHub 把日記資料同步到雲端，電腦和手機都能看到同一份日記。</div>
+
+      <label class="setup-label" for="patInput">GitHub Personal Access Token</label>
+      <input type="password" id="patInput" class="setup-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+      <div class="setup-err" id="setupErr">Token 驗證失敗，請確認是否有 gist 權限</div>
+
+      <button class="setup-btn" onclick="doSetup()">開始同步 🌿</button>
+      <span class="setup-skip" onclick="closeSetup()">先不用，只在這台使用</span>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const KEY = 'carol_manifest_v1';
+    const WD = ['日','一','二','三','四','五','六'];
+    const GIST_FILE = 'carol_manifest_v1.json';
+    const TOKEN_KEY = 'gh_pat';
+    const GIST_KEY  = 'gh_gist_id';
+
+    const LEVELS = [
+      {icon:'🌱',name:'種子',     min:0 },
+      {icon:'🌿',name:'嫩芽',     min:7 },
+      {icon:'🌸',name:'花苞',     min:20},
+      {icon:'🌺',name:'盛開',     min:40},
+      {icon:'🌻',name:'花滿枝頭', min:70},
+    ];
+
+    const PROMPTS = [
+      '今天，你為自己做了什麼值得驕傲的事？',
+      '說一件你喜歡自己的事。',
+      '今天有什麼小小的進展，讓你感到滿足？',
+      '你最近注意到自己哪個優點？',
+      '你想給一個月後的自己說一句話。',
+      '今天什麼事讓你覺得「我可以的」？',
+      '你最近克服了什麼困難？',
+      '如果今天的自己是一朵植物，你會是什麼？為什麼？',
+      '你希望自己記住今天的什麼感覺？',
+      '寫下一件你相信自己一定能做到的事。',
+      '今天哪個當下讓你覺得「我很好」？',
+      '你最感謝自己的一件事是什麼？',
+      '今天有沒有什麼事，讓你發現自己比昨天更強了？',
+      '如果要給自己打一個分數，你給幾分？為什麼？',
+    ];
+
+    const PRAISE_KW = [
+      '我做到了','我很棒','我成功','我能做','我做好了','謝謝自己',
+      '我好棒','做得好','我很厲害','我很努力','我值得','我相信自己',
+      '我做得很好','我很勇敢','我進步了','有能力','我可以','我辦到了',
+      '好棒的自己','為自己驕傲','我喜歡自己','我愛自己','謝謝我自己',
+      '我真的做到','我超棒','我很好','我成長了','我有在進步',
+    ];
+
+    // ── Calendar state ──────────────────────────────────────────────
+    let calYear, calMonth;
+    (function() {
+      const n = new Date();
+      calYear = n.getFullYear();
+      calMonth = n.getMonth();
+    })();
+
+    // ── Local storage ───────────────────────────────────────────────
+    function load() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || {entries:[],totalEnergy:0}; }
+      catch { return {entries:[],totalEnergy:0}; }
+    }
+    function saveLocal(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+
+    // ── Gist sync ───────────────────────────────────────────────────
+    function getToken()  { return localStorage.getItem(TOKEN_KEY) || ''; }
+    function getGistId() { return localStorage.getItem(GIST_KEY) || ''; }
+
+    function setSyncStatus(state) {
+      const b = document.getElementById('syncBadge');
+      if (state === 'syncing') {
+        b.textContent = '🔄 同步中...';
+        b.classList.add('syncing');
+      } else if (state === 'ok') {
+        b.textContent = '✅ 已同步';
+        b.classList.remove('syncing');
+      } else if (state === 'error') {
+        b.textContent = '⚠️ 同步失敗';
+        b.classList.remove('syncing');
+      } else {
+        b.textContent = '⚙️ 設定同步';
+        b.classList.remove('syncing');
+      }
+    }
+
+    async function loadFromGist() {
+      const token = getToken(), gistId = getGistId();
+      if (!token || !gistId) return;
+      setSyncStatus('syncing');
+      try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' }
+        });
+        if (!res.ok) { setSyncStatus('error'); return; }
+        const gist = await res.json();
+        const content = gist.files[GIST_FILE]?.content;
+        if (!content) { setSyncStatus('error'); return; }
+        saveLocal(JSON.parse(content));
+        setSyncStatus('ok');
+        render();
+      } catch { setSyncStatus('error'); }
+    }
+
+    async function saveToGist(data) {
+      const token = getToken(), gistId = getGistId();
+      if (!token || !gistId) return;
+      setSyncStatus('syncing');
+      try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ files: { [GIST_FILE]: { content: JSON.stringify(data) } } })
+        });
+        setSyncStatus(res.ok ? 'ok' : 'error');
+      } catch { setSyncStatus('error'); }
+    }
+
+    function save(d) {
+      saveLocal(d);
+      saveToGist(d);
+    }
+
+    // ── Setup modal ─────────────────────────────────────────────────
+    function showSetup() {
+      document.getElementById('setupOverlay').classList.add('show');
+    }
+    function closeSetup() {
+      document.getElementById('setupOverlay').classList.remove('show');
+    }
+
+    async function doSetup() {
+      const token = document.getElementById('patInput').value.trim();
+      const errEl = document.getElementById('setupErr');
+      const input = document.getElementById('patInput');
+      if (!token) { input.classList.add('error'); return; }
+      input.classList.remove('error');
+      errEl.classList.remove('show');
+
+      const btn = document.querySelector('.setup-btn');
+      btn.textContent = '建立中...';
+      btn.disabled = true;
+
+      try {
+        // Create a private Gist with existing data
+        const existing = load();
+        const res = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            description: '顯化日記｜Carol 的秘密花園',
+            public: false,
+            files: { [GIST_FILE]: { content: JSON.stringify(existing) } }
+          })
+        });
+
+        if (!res.ok) {
+          errEl.classList.add('show');
+          input.classList.add('error');
+          btn.textContent = '開始同步 🌿';
+          btn.disabled = false;
+          return;
+        }
+
+        const gist = await res.json();
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem(GIST_KEY, gist.id);
+        setSyncStatus('ok');
+        closeSetup();
+        showToast('✅ 同步設定完成！任何裝置開啟都能看到同一份日記 🌿');
+      } catch {
+        errEl.textContent = '網路錯誤，請稍後再試';
+        errEl.classList.add('show');
+        btn.textContent = '開始同步 🌿';
+        btn.disabled = false;
+      }
+    }
+
+    // ── Utilities ───────────────────────────────────────────────────
+    function pad(n) { return String(n).padStart(2,'0'); }
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+    function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function calcStreak(entries) {
+      if (!entries.length) return 0;
+      const dates = new Set(entries.map(e => e.date));
+      let streak = 0;
+      const cur = new Date(); cur.setHours(0,0,0,0);
+      while (true) {
+        const s = `${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`;
+        if (dates.has(s)) { streak++; cur.setDate(cur.getDate()-1); }
+        else break;
+      }
+      return streak;
+    }
+
+    function detectPraise(text) {
+      return Math.min(PRAISE_KW.filter(k => text.includes(k)).length, 3);
+    }
+
+    function calcEnergy(text, praiseText, streakActive) {
+      const base = 20;
+      const pc = detectPraise(text);
+      const praiseBonus = pc * 10;
+      const streakBonus = streakActive ? 5 : 0;
+      const manualBonus = praiseText.length > 0 ? 5 : 0;
+      return {base, praiseBonus, streakBonus, manualBonus, praiseCount:pc,
+              total: base+praiseBonus+streakBonus+manualBonus};
+    }
+
+    function getLvl(n) {
+      let l = LEVELS[0];
+      for (const x of LEVELS) { if (n >= x.min) l = x; }
+      return l;
+    }
+    function getNextLvl(n) {
+      for (let i=0;i<LEVELS.length-1;i++) { if (n < LEVELS[i+1].min) return LEVELS[i+1]; }
+      return null;
+    }
+
+    // ── Calendar render ─────────────────────────────────────────────
+    function renderCalendar() {
+      const data = load();
+      const entryDates = new Set(data.entries.map(e => e.date));
+      const today = todayStr();
+
+      document.getElementById('calMonthTitle').textContent = `${calYear}年${calMonth+1}月`;
+
+      const firstDow = (new Date(calYear, calMonth, 1).getDay() + 6) % 7;
+      const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+
+      let html = '';
+      for (let i = 0; i < firstDow; i++) html += `<div class="cal-day empty"></div>`;
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const ds = `${calYear}-${pad(calMonth+1)}-${pad(d)}`;
+        const dow = new Date(calYear, calMonth, d).getDay();
+        const isToday = ds === today;
+        const hasEntry = entryDates.has(ds);
+        const isFuture = ds > today;
+        const isSun = dow === 0;
+
+        let cls = 'cal-day';
+        if (isFuture) cls += ' future';
+        else if (hasEntry) cls += ' has-entry';
+        if (isToday) cls += ' today';
+        if (isSun) cls += ' sun';
+
+        const onclick = hasEntry ? `onclick="openEntry('${ds}')"` : '';
+        const title = hasEntry ? `title="${ds} 有日記"` : '';
+        html += `<div class="${cls}" ${onclick} ${title}>${d}</div>`;
+      }
+
+      document.getElementById('calDays').innerHTML = html;
+    }
+
+    function changeMonth(delta) {
+      calMonth += delta;
+      if (calMonth < 0)  { calMonth = 11; calYear--; }
+      if (calMonth > 11) { calMonth = 0;  calYear++; }
+      renderCalendar();
+    }
+
+    // ── Entry detail modal ──────────────────────────────────────────
+    function openEntry(dateStr) {
+      const data = load();
+      const entry = data.entries.find(e => e.date === dateStr);
+      if (!entry) return;
+
+      const d = new Date(dateStr + 'T12:00:00');
+      document.getElementById('modalDate').textContent =
+        `${d.getMonth()+1}月${d.getDate()}日 週${WD[d.getDay()]}`;
+      document.getElementById('modalEnergy').textContent = `+${entry.energy} ⚡`;
+      document.getElementById('modalBody').textContent = entry.content;
+
+      const praiseEl = document.getElementById('modalPraise');
+      if (entry.praise) {
+        praiseEl.style.display = 'block';
+        praiseEl.textContent = '✨ ' + entry.praise;
+      } else {
+        praiseEl.style.display = 'none';
+      }
+      document.getElementById('entryModal').classList.add('show');
+    }
+
+    function closeEntryModal(e) {
+      if (e && e.target !== document.getElementById('entryModal')) return;
+      document.getElementById('entryModal').classList.remove('show');
+    }
+
+    // ── Export ──────────────────────────────────────────────────────
+    function exportMonth() {
+      const data = load();
+      const prefix = `${calYear}-${pad(calMonth+1)}`;
+      const entries = (data.entries || [])
+        .filter(e => e.date.startsWith(prefix))
+        .sort((a,b) => a.date.localeCompare(b.date));
+
+      if (!entries.length) {
+        showToast(`${calYear}年${calMonth+1}月 還沒有日記`);
+        return;
+      }
+
+      let text = `顯化日記｜${calYear} 年 ${calMonth+1} 月\n`;
+      text += `共 ${entries.length} 篇 ｜ 總能量 `;
+      text += entries.reduce((s,e)=>s+e.energy,0) + ' ⚡\n';
+      text += '─'.repeat(28) + '\n\n';
+
+      for (const e of entries) {
+        const d = new Date(e.date + 'T12:00:00');
+        text += `【${d.getMonth()+1}/${d.getDate()} 週${WD[d.getDay()]}】\n`;
+        text += e.content + '\n';
+        if (e.praise) text += `\n✨ 今天對自己的稱讚：${e.praise}\n`;
+        text += `⚡ +${e.energy}\n\n`;
+      }
+
+      navigator.clipboard.writeText(text)
+        .then(() => showToast(`✅ 已複製 ${entries.length} 篇日記，可直接貼給 Claude！`))
+        .catch(() => {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          showToast(`✅ 已複製 ${entries.length} 篇日記！`);
+        });
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    // ── Main render ─────────────────────────────────────────────────
+    function render() {
+      const data = load();
+      const entries = data.entries || [];
+      const today = todayStr();
+      const todayEntry = entries.find(e => e.date === today);
+      const streak = calcStreak(entries);
+      const count = entries.length;
+      const li = getLvl(count);
+      const next = getNextLvl(count);
+      const now = new Date();
+
+      document.getElementById('todayDate').textContent =
+        `${now.getFullYear()} 年 ${now.getMonth()+1} 月 ${now.getDate()} 日 ‧ 週${WD[now.getDay()]}`;
+
+      document.getElementById('statStreak').textContent = streak;
+      document.getElementById('statTotal').textContent = count;
+      document.getElementById('statEnergy').textContent = data.totalEnergy || 0;
+
+      document.getElementById('levelBadge').textContent = `${li.icon} ${li.name}`;
+      let pct = 0, nextText = '已是最高等級 🌻';
+      if (next) {
+        pct = Math.round((count - li.min) / (next.min - li.min) * 100);
+        nextText = `距離「${next.icon} ${next.name}」還差 ${next.min - count} 篇`;
+      } else { pct = 100; }
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('progressLabel').textContent = nextText;
+
+      const doy = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
+      document.getElementById('promptText').textContent = PROMPTS[doy % PROMPTS.length];
+
+      if (todayEntry) {
+        document.getElementById('writeSection').style.display = 'none';
+        document.getElementById('doneToday').style.display = 'block';
+        const pb = document.getElementById('doneTodayPraise');
+        if (todayEntry.praise) { pb.style.display='block'; pb.textContent='✨ '+todayEntry.praise; }
+        else { pb.style.display='none'; }
+      } else {
+        document.getElementById('writeSection').style.display = 'block';
+        document.getElementById('doneToday').style.display = 'none';
+      }
+
+      const list = document.getElementById('entryList');
+      const empty = document.getElementById('emptyHint');
+      const sorted = [...entries].sort((a,b) => b.date.localeCompare(a.date));
+      if (!sorted.length) {
+        empty.style.display = 'block'; list.innerHTML = '';
+      } else {
+        empty.style.display = 'none';
+        list.innerHTML = sorted.map(e => {
+          const d = new Date(e.date+'T12:00:00');
+          const ds = `${d.getMonth()+1}/${d.getDate()} 週${WD[d.getDay()]}`;
+          const hasPraise = e.praise || (e.praiseCount||0) > 0;
+          const praiseRow = e.praise
+            ? `<div class="entry-praise-row"><span>✨</span><span>${esc(e.praise)}</span></div>` : '';
+          return `<div class="entry-card${hasPraise?' golden':''}">
+            <div class="entry-top">
+              <div class="entry-date">${ds}</div>
+              <div class="entry-energy">+${e.energy} ⚡</div>
+            </div>
+            <div class="entry-body">${esc(e.content).replace(/\n/g,'<br>')}</div>
+            ${praiseRow}
+          </div>`;
+        }).join('');
+      }
+
+      renderCalendar();
+
+      // Show sync badge state
+      if (!getToken()) setSyncStatus('none');
+    }
+
+    // ── Submit ──────────────────────────────────────────────────────
+    function submitEntry() {
+      const el = document.getElementById('journalArea');
+      const text = el.value.trim();
+      if (text.length < 10) {
+        el.classList.add('error');
+        el.placeholder = '多寫幾個字吧～至少 10 個字 🌱';
+        el.focus(); return;
+      }
+      el.classList.remove('error');
+      const praiseText = document.getElementById('praiseInput').value.trim();
+
+      const data = load();
+      const today = todayStr();
+      const streak = calcStreak(data.entries);
+      const e = calcEnergy(text, praiseText, streak > 0);
+
+      data.entries = (data.entries||[]).filter(x => x.date !== today);
+      data.entries.push({date:today, content:text, praise:praiseText, energy:e.total, praiseCount:e.praiseCount});
+      data.totalEnergy = (data.totalEnergy||0) + e.total;
+      save(data);
+
+      showCelebration(e, praiseText);
+      spawnParticles();
+      render();
+      el.value = '';
+      document.getElementById('praiseInput').value = '';
+      document.getElementById('charCount').textContent = '0 字';
+    }
+
+    // ── Celebration ─────────────────────────────────────────────────
+    function showCelebration(e, praiseText) {
+      let emoji = '🌸', msg = '又一篇顯化日記完成了 🌿';
+      if (praiseText) { emoji='✨'; msg='你今天有好好稱讚自己，這很重要 🌸'; }
+      else if (e.praiseCount >= 3) { emoji='🌺'; msg='你今天稱讚自己好多次！這樣的你，真的很勇敢 💪'; }
+
+      document.getElementById('celEmoji').textContent = emoji;
+      document.getElementById('celMsg').textContent = msg;
+
+      const pb = document.getElementById('celPraiseBox');
+      if (praiseText) { pb.textContent = '「'+praiseText+'」'; pb.classList.add('show'); }
+      else { pb.classList.remove('show'); }
+
+      const chips = [`<div class="energy-chip chip-base">基本 +${e.base} ⚡</div>`];
+      if (e.praiseBonus) chips.push(`<div class="energy-chip chip-praise">稱讚加成 +${e.praiseBonus} ✨</div>`);
+      if (e.manualBonus) chips.push(`<div class="energy-chip chip-praise">手寫稱讚 +${e.manualBonus} 💚</div>`);
+      if (e.streakBonus) chips.push(`<div class="energy-chip chip-streak">連續加成 +${e.streakBonus} 🔥</div>`);
+      chips.push(`<div class="energy-chip chip-total">共 +${e.total} ⚡</div>`);
+      document.getElementById('celChips').innerHTML = chips.join('');
+      document.getElementById('overlay').classList.add('show');
+    }
+
+    function closeOverlay() { document.getElementById('overlay').classList.remove('show'); }
+
+    // ── Particles ───────────────────────────────────────────────────
+    function spawnParticles() {
+      const em = ['🌸','✨','🌿','⚡','🌺','💚','🌱'];
+      for (let i=0;i<9;i++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'particle';
+          el.textContent = em[Math.floor(Math.random()*em.length)];
+          el.style.left = (15+Math.random()*70)+'%';
+          el.style.top  = (35+Math.random()*30)+'%';
+          document.body.appendChild(el);
+          setTimeout(()=>el.remove(), 1700);
+        }, i*100);
+      }
+    }
+
+    document.getElementById('journalArea').addEventListener('input', function() {
+      document.getElementById('charCount').textContent = this.value.length+' 字';
+      this.classList.remove('error');
+    });
+
+    // ── Init ────────────────────────────────────────────────────────
+    render();
+    loadFromGist(); // fetch latest from cloud, re-render when done
+  </script>
+</body>
+</html>
