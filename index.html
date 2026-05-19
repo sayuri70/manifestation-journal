@@ -11,8 +11,19 @@
       background: #f5f2eb;
       color: #3a3a3a;
       min-height: 100vh;
-      padding-bottom: 60px;
+      padding-bottom: 80px;
     }
+
+    /* ── Footer ── */
+    .brand-footer {
+      text-align: center;
+      padding: 18px 20px;
+      font-size: 11px;
+      color: #999;
+      letter-spacing: 0.5px;
+      line-height: 1.8;
+    }
+    .brand-footer span { color: #006030; font-weight: 600; }
 
     /* ── Header ── */
     .header {
@@ -162,6 +173,14 @@
     .done-today-text { font-size:16px; font-weight:700; color:#006030; }
     .done-today-sub { font-size:13px; color:#aaa; margin-top:4px; line-height:1.5; }
     .done-today-praise { margin-top:14px; padding:12px 16px; background:#f0faf4; border:1px solid #b0dfc0; border-radius:14px; font-size:15px; color:#006030; font-style:italic; line-height:1.5; }
+    .edit-today-btn { margin-top:14px; padding:10px 20px; background:white; color:#006030; border:1.5px solid #006030; border-radius:12px; font-size:13px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; }
+    .edit-today-btn:hover { background:#f0faf4; }
+
+    /* ── Write date banner ── */
+    .write-date-banner { display:none; background:#e8f5ee; border:1.5px solid #a8d8b8; border-radius:12px; padding:9px 14px; margin-bottom:12px; font-size:13px; color:#006030; font-weight:700; display:flex; align-items:center; gap:8px; }
+    .write-date-banner.active { display:flex; }
+    .cancel-edit-btn { margin-left:auto; font-size:12px; color:#999; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
+    .cancel-edit-btn:hover { color:#666; }
 
     /* ── History ── */
     .history-section { margin:0 14px; }
@@ -196,7 +215,10 @@
     .modal-energy { font-size:13px; font-weight:700; color:#b8860a; background:#fff8e0; padding:3px 12px; border-radius:10px; }
     .modal-body { font-size:15px; color:#444; line-height:1.8; white-space:pre-wrap; }
     .modal-praise { margin-top:14px; padding:12px 14px; background:#f0faf4; border:1px solid #b0dfc0; border-radius:14px; font-size:14px; color:#006030; font-style:italic; }
-    .modal-close { display:block; margin-top:20px; width:100%; padding:14px; background:#006030; color:white; border:none; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .modal-btn-row { display:flex; gap:10px; margin-top:20px; }
+    .modal-close { flex:1; padding:14px; background:#006030; color:white; border:none; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; }
+    .modal-edit-btn { flex:1; padding:14px; background:white; color:#006030; border:1.5px solid #006030; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; }
+    .modal-edit-btn:hover { background:#f0faf4; }
 
     /* ── Setup modal ── */
     .setup-overlay {
@@ -273,7 +295,7 @@
 
   <!-- Header -->
   <div class="header">
-    <div class="header-label">✦ 花開製作所</div>
+    <div class="header-label">✦ 顯化日記</div>
     <div class="header-title">顯化日記</div>
     <div class="header-date" id="todayDate"></div>
     <div class="sync-badge" id="syncBadge" onclick="showSetup()">⚙️ 設定同步</div>
@@ -342,8 +364,12 @@
 
   <!-- Write -->
   <div class="write-section" id="writeSection">
+    <div class="write-date-banner" id="writeDateBanner">
+      <span id="writeDateLabel"></span>
+      <button class="cancel-edit-btn" onclick="cancelEdit()">✕ 取消，回到今天</button>
+    </div>
     <div class="write-header">
-      <div class="write-title">今日的你 ✍️</div>
+      <div class="write-title" id="writeTitle">今日的你 ✍️</div>
       <div class="char-count" id="charCount">0 字</div>
     </div>
     <textarea id="journalArea"
@@ -353,7 +379,7 @@
       <input type="text" id="praiseInput" class="praise-input"
         placeholder="今天的我，_____ （隨便寫，對自己說一句好話就好）">
     </div>
-    <button class="submit-btn" onclick="submitEntry()">完成今日日記 🌸</button>
+    <button class="submit-btn" id="submitBtn" onclick="submitEntry()">完成今日日記 🌸</button>
   </div>
 
   <!-- Done today -->
@@ -362,6 +388,7 @@
     <div class="done-today-text">今天已經寫好了！</div>
     <div class="done-today-sub">繼續保持，明天再來累積能量 ✨<br>連續不中斷，花就會越開越美</div>
     <div class="done-today-praise" id="doneTodayPraise" style="display:none"></div>
+    <button class="edit-today-btn" onclick="startWrite(todayStr())">✏️ 修改今天的日記</button>
   </div>
 
   <!-- History -->
@@ -383,7 +410,10 @@
       </div>
       <div class="modal-body" id="modalBody"></div>
       <div class="modal-praise" id="modalPraise" style="display:none"></div>
-      <button class="modal-close" onclick="closeEntryModal()">關閉</button>
+      <div class="modal-btn-row">
+        <button class="modal-edit-btn" id="modalEditBtn" onclick="">✏️ 編輯</button>
+        <button class="modal-close" onclick="closeEntryModal()">關閉</button>
+      </div>
     </div>
   </div>
 
@@ -465,6 +495,9 @@
       calYear = n.getFullYear();
       calMonth = n.getMonth();
     })();
+
+    // ── Edit state ───────────────────────────────────────────────────
+    let currentEditingDate = null; // null = writing for today
 
     // ── Local storage ───────────────────────────────────────────────
     function load() {
@@ -693,8 +726,8 @@
         if (isToday) cls += ' today';
         if (isSun) cls += ' sun';
 
-        const onclick = hasEntry ? `onclick="openEntry('${ds}')"` : '';
-        const title = hasEntry ? `title="${ds} 有日記"` : '';
+        const onclick = !isFuture ? `onclick="dayClick('${ds}')"` : '';
+        const title = hasEntry ? `title="${ds} 有日記（可點擊編輯）"` : (!isFuture ? `title="${ds} 點擊可補寫"` : '');
         html += `<div class="${cls}" ${onclick} ${title}>${d}</div>`;
       }
 
@@ -709,10 +742,63 @@
     }
 
     // ── Entry detail modal ──────────────────────────────────────────
+    function dayClick(dateStr) {
+      const data = load();
+      const entry = data.entries.find(e => e.date === dateStr);
+      if (entry) { openEntry(dateStr); } else { startWrite(dateStr); }
+    }
+
+    function startWrite(dateStr) {
+      const today = todayStr();
+      const isToday = (dateStr === today);
+      currentEditingDate = isToday ? null : dateStr;
+
+      const data = load();
+      const entry = data.entries.find(e => e.date === dateStr);
+
+      const ta = document.getElementById('journalArea');
+      const pi = document.getElementById('praiseInput');
+      ta.value = entry ? entry.content : '';
+      pi.value = entry && entry.praise ? entry.praise : '';
+      document.getElementById('charCount').textContent = ta.value.length + ' 字';
+
+      const banner = document.getElementById('writeDateBanner');
+      if (!isToday) {
+        const d = new Date(dateStr + 'T12:00:00');
+        const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ‧ 週${WD[d.getDay()]}`;
+        document.getElementById('writeDateLabel').textContent =
+          (entry ? '✏️ 編輯：' : '📝 補寫：') + label;
+        banner.classList.add('active');
+      } else {
+        banner.classList.remove('active');
+      }
+
+      document.getElementById('writeTitle').textContent = isToday ? '今日的你 ✍️' : (entry ? '編輯這天的日記 ✍️' : '補寫這天的日記 ✍️');
+      document.getElementById('submitBtn').textContent = entry ? '儲存修改 🌿' : '完成今日日記 🌸';
+
+      document.getElementById('writeSection').style.display = 'block';
+      document.getElementById('doneToday').style.display = 'none';
+      document.getElementById('entryModal').classList.remove('show');
+      document.getElementById('writeSection').scrollIntoView({behavior:'smooth'});
+    }
+
+    function cancelEdit() {
+      currentEditingDate = null;
+      document.getElementById('writeDateBanner').classList.remove('active');
+      document.getElementById('writeTitle').textContent = '今日的你 ✍️';
+      document.getElementById('submitBtn').textContent = '完成今日日記 🌸';
+      document.getElementById('journalArea').value = '';
+      document.getElementById('praiseInput').value = '';
+      document.getElementById('charCount').textContent = '0 字';
+      render();
+    }
+
     function openEntry(dateStr) {
       const data = load();
       const entry = data.entries.find(e => e.date === dateStr);
       if (!entry) return;
+
+      document.getElementById('modalEditBtn').onclick = () => startWrite(dateStr);
 
       const d = new Date(dateStr + 'T12:00:00');
       document.getElementById('modalDate').textContent =
@@ -866,14 +952,24 @@
       const praiseText = document.getElementById('praiseInput').value.trim();
 
       const data = load();
-      const today = todayStr();
+      const targetDate = currentEditingDate || todayStr();
       const streak = calcStreak(data.entries);
       const e = calcEnergy(text, praiseText, streak > 0);
 
-      data.entries = (data.entries||[]).filter(x => x.date !== today);
-      data.entries.push({date:today, content:text, praise:praiseText, energy:e.total, praiseCount:e.praiseCount});
+      // Subtract old energy if overwriting an existing entry
+      const oldEntry = (data.entries||[]).find(x => x.date === targetDate);
+      if (oldEntry) data.totalEnergy = (data.totalEnergy||0) - (oldEntry.energy||0);
+
+      data.entries = (data.entries||[]).filter(x => x.date !== targetDate);
+      data.entries.push({date:targetDate, content:text, praise:praiseText, energy:e.total, praiseCount:e.praiseCount});
       data.totalEnergy = (data.totalEnergy||0) + e.total;
       save(data);
+
+      // Reset edit state
+      currentEditingDate = null;
+      document.getElementById('writeDateBanner').classList.remove('active');
+      document.getElementById('writeTitle').textContent = '今日的你 ✍️';
+      document.getElementById('submitBtn').textContent = '完成今日日記 🌸';
 
       showCelebration(e, praiseText);
       spawnParticles();
@@ -932,5 +1028,11 @@
     render();
     loadFromGist(); // fetch latest from cloud, re-render when done
   </script>
+
+  <!-- Footer -->
+  <div class="brand-footer">
+    <span>花開植感美學實驗室</span><br>
+    用植感裝點生活，讓生活更有質感
+  </div>
 </body>
 </html>
