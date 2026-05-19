@@ -680,6 +680,9 @@
       const dates = new Set(entries.map(e => e.date));
       let streak = 0;
       const cur = new Date(); cur.setHours(0,0,0,0);
+      // If today has no entry yet, start counting from yesterday (don't break streak mid-day)
+      const todayS = `${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`;
+      if (!dates.has(todayS)) cur.setDate(cur.getDate() - 1);
       while (true) {
         const s = `${cur.getFullYear()}-${pad(cur.getMonth()+1)}-${pad(cur.getDate())}`;
         if (dates.has(s)) { streak++; cur.setDate(cur.getDate()-1); }
