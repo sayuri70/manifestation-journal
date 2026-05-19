@@ -177,7 +177,7 @@
     .edit-today-btn:hover { background:#f0faf4; }
 
     /* ── Write date banner ── */
-    .write-date-banner { display:none; background:#e8f5ee; border:1.5px solid #a8d8b8; border-radius:12px; padding:9px 14px; margin-bottom:12px; font-size:13px; color:#006030; font-weight:700; display:flex; align-items:center; gap:8px; }
+    .write-date-banner { display:none; background:#e8f5ee; border:1.5px solid #a8d8b8; border-radius:12px; padding:9px 14px; margin-bottom:12px; font-size:13px; color:#006030; font-weight:700; align-items:center; gap:8px; }
     .write-date-banner.active { display:flex; }
     .cancel-edit-btn { margin-left:auto; font-size:12px; color:#999; background:none; border:none; cursor:pointer; padding:0; font-family:inherit; }
     .cancel-edit-btn:hover { color:#666; }
@@ -215,10 +215,20 @@
     .modal-energy { font-size:13px; font-weight:700; color:#b8860a; background:#fff8e0; padding:3px 12px; border-radius:10px; }
     .modal-body { font-size:15px; color:#444; line-height:1.8; white-space:pre-wrap; }
     .modal-praise { margin-top:14px; padding:12px 14px; background:#f0faf4; border:1px solid #b0dfc0; border-radius:14px; font-size:14px; color:#006030; font-style:italic; }
-    .modal-btn-row { display:flex; gap:10px; margin-top:20px; }
+    .modal-btn-row { display:flex; gap:8px; margin-top:20px; }
     .modal-close { flex:1; padding:14px; background:#006030; color:white; border:none; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; }
     .modal-edit-btn { flex:1; padding:14px; background:white; color:#006030; border:1.5px solid #006030; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; }
     .modal-edit-btn:hover { background:#f0faf4; }
+    .modal-delete-btn { flex:1; padding:14px; background:white; color:#c0392b; border:1.5px solid #e57373; border-radius:14px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; }
+    .modal-delete-btn:hover { background:#fff5f5; }
+
+    /* ── Entry card actions ── */
+    .entry-actions { display:flex; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid #f0f0f0; }
+    .entry-action-btn { flex:1; padding:8px; border-radius:10px; font-size:12px; font-weight:700; font-family:inherit; cursor:pointer; transition:background .15s; }
+    .entry-action-edit { background:white; color:#006030; border:1.5px solid #006030; }
+    .entry-action-edit:hover { background:#f0faf4; }
+    .entry-action-delete { background:white; color:#c0392b; border:1.5px solid #e57373; }
+    .entry-action-delete:hover { background:#fff5f5; }
 
     /* ── Setup modal ── */
     .setup-overlay {
@@ -295,7 +305,7 @@
 
   <!-- Header -->
   <div class="header">
-    <div class="header-label">✦ 顯化日記</div>
+    <div class="header-label">✦</div>
     <div class="header-title">顯化日記</div>
     <div class="header-date" id="todayDate"></div>
     <div class="sync-badge" id="syncBadge" onclick="showSetup()">⚙️ 設定同步</div>
@@ -388,7 +398,10 @@
     <div class="done-today-text">今天已經寫好了！</div>
     <div class="done-today-sub">繼續保持，明天再來累積能量 ✨<br>連續不中斷，花就會越開越美</div>
     <div class="done-today-praise" id="doneTodayPraise" style="display:none"></div>
-    <button class="edit-today-btn" onclick="startWrite(todayStr())">✏️ 修改今天的日記</button>
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:center;">
+      <button class="edit-today-btn" onclick="startWrite(todayStr())">✏️ 修改</button>
+      <button class="edit-today-btn" style="color:#c0392b;border-color:#e57373;" onclick="deleteEntry(todayStr())">🗑️ 刪除</button>
+    </div>
   </div>
 
   <!-- History -->
@@ -411,6 +424,7 @@
       <div class="modal-body" id="modalBody"></div>
       <div class="modal-praise" id="modalPraise" style="display:none"></div>
       <div class="modal-btn-row">
+        <button class="modal-delete-btn" id="modalDeleteBtn" onclick="">🗑️ 刪除</button>
         <button class="modal-edit-btn" id="modalEditBtn" onclick="">✏️ 編輯</button>
         <button class="modal-close" onclick="closeEntryModal()">關閉</button>
       </div>
@@ -782,6 +796,21 @@
       document.getElementById('writeSection').scrollIntoView({behavior:'smooth'});
     }
 
+    function deleteEntry(dateStr) {
+      const d = new Date(dateStr + 'T12:00:00');
+      const label = `${d.getMonth()+1}月${d.getDate()}日`;
+      if (!confirm(`確定要刪除 ${label} 的日記嗎？\n刪除後無法復原。`)) return;
+      const data = load();
+      const entry = data.entries.find(x => x.date === dateStr);
+      if (!entry) return;
+      data.totalEnergy = Math.max(0, (data.totalEnergy||0) - (entry.energy||0));
+      data.entries = data.entries.filter(x => x.date !== dateStr);
+      save(data);
+      document.getElementById('entryModal').classList.remove('show');
+      showToast(`${label} 的日記已刪除`);
+      render();
+    }
+
     function cancelEdit() {
       currentEditingDate = null;
       document.getElementById('writeDateBanner').classList.remove('active');
@@ -799,6 +828,7 @@
       if (!entry) return;
 
       document.getElementById('modalEditBtn').onclick = () => startWrite(dateStr);
+      document.getElementById('modalDeleteBtn').onclick = () => deleteEntry(dateStr);
 
       const d = new Date(dateStr + 'T12:00:00');
       document.getElementById('modalDate').textContent =
@@ -923,12 +953,16 @@
           const praiseRow = e.praise
             ? `<div class="entry-praise-row"><span>✨</span><span>${esc(e.praise)}</span></div>` : '';
           return `<div class="entry-card${hasPraise?' golden':''}">
-            <div class="entry-top">
+            <div class="entry-top" onclick="openEntry('${e.date}')" style="cursor:pointer">
               <div class="entry-date">${ds}</div>
               <div class="entry-energy">+${e.energy} ⚡</div>
             </div>
-            <div class="entry-body">${esc(e.content).replace(/\n/g,'<br>')}</div>
+            <div class="entry-body" onclick="openEntry('${e.date}')" style="cursor:pointer">${esc(e.content).replace(/\n/g,'<br>')}</div>
             ${praiseRow}
+            <div class="entry-actions">
+              <button class="entry-action-btn entry-action-edit" onclick="startWrite('${e.date}')">✏️ 編輯</button>
+              <button class="entry-action-btn entry-action-delete" onclick="deleteEntry('${e.date}')">🗑️ 刪除</button>
+            </div>
           </div>`;
         }).join('');
       }
